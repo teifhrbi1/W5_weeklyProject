@@ -1,5 +1,4 @@
-cd /Users/teif/nlp-cli-tool
-cat > README.md << 'EOF'
+
 # W5 Weekly Project — Arabic NLP Classification CLI Tool
 
 ## Summary
