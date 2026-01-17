@@ -1,10 +1,43 @@
-# Arabic NLP Classification CLI Tool
+cd /Users/teif/nlp-cli-tool
+cat > README.md << 'EOF'
+# W5 Weekly Project — Arabic NLP Classification CLI Tool
 
-A command-line interface (CLI) tool that runs an end-to-end Arabic text classification pipeline:
-EDA → Preprocessing → Embedding (TF-IDF) → Training/Evaluation, with an optional one-line pipeline command.
+## Summary
+A production-style CLI tool that runs an end-to-end Arabic text classification pipeline:
+EDA → Preprocessing → Embedding → Training/Evaluation
+The tool is designed to work with any CSV dataset (any column names) as long as the user provides:
+- --text_col (text column name)
+- --label_col (label/rating column name)
+It produces reproducible outputs (plots, embeddings, reports, models) under outputs/.
+
+## Key Features
+Core Requirements
+- Click-based CLI with commands/subcommands.
+- EDA:
+  - Class distribution plots (bar/pie)
+  - Text length histogram (words/chars) with descriptive stats
+- Preprocessing:
+  - Remove: URLs, tashkeel, tatweel, non-Arabic symbols, extra spaces
+  - Stopwords removal (Arabic stopwords list stored locally)
+  - Replace/normalize Arabic character variants
+  - preprocess all chains all steps
+- Embeddings:
+  - TF-IDF vectors (saved with fitted vectorizer)
+- Training/Evaluation:
+  - Models: KNN, Logistic Regression, Random Forest
+  - Metrics: Accuracy, Precision, Recall, F1 (weighted)
+  - Confusion matrices saved as PNG
+  - Markdown report saved with timestamp
+  - Best model saved as joblib package
+
+Bonus Features Implemented
+- pipeline: one-command full workflow run (recommended for instructor testing)
+- Wordcloud generation (EDA bonus)
+- Additional embeddings:
+  - embed bert (transformers)
+  - embed sentence-transformer (sentence-transformers)
 
 ## Project Structure
-
 nlp-cli-tool/
 - main.py
 - commands/
@@ -13,9 +46,11 @@ nlp-cli-tool/
   - embedding.py
   - training.py
   - pipeline.py
+  - wordcloud_cmd.py
 - utils/
   - data_handler.py
   - arabic_text.py
+  - visualization.py
   - stopwords_ar.txt
 - outputs/
   - visualizations/
@@ -23,168 +58,113 @@ nlp-cli-tool/
   - models/
   - embeddings/
 - requirements.txt
+- README.md
 
-## Requirements
-
-- Python 3.10+ recommended (tested locally with newer Python versions).
-- Install dependencies from requirements.txt.
-
-## Setup
-
-Create and activate a virtual environment, then install dependencies:
-
+## Installation
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-
-Verify:
-
 python -c "import click, pandas, sklearn, matplotlib; print('OK')"
 
-## CLI Overview
+## Input CSV Requirements (Instructor Testing)
+Any CSV file is supported as long as:
+- It contains a text column (e.g., review_description, text, description)
+- It contains a label column (e.g., rating, class, sentiment)
+The user must specify the exact column names via CLI flags.
 
-Show help:
+Example (CompanyReviews.csv tested):
+review_description,rating,company
 
+## How to Grade in 60 Seconds (Recommended)
+Run one command that executes the full pipeline and saves artifacts:
+python main.py pipeline --csv_path CompanyReviews.csv --text_col "review_description" --label_col "rating" --test_size 0.3 --out_dir outputs/companyreviews_run
+Expected outputs:
+- outputs/companyreviews_run/reports/pipeline_report.md
+- outputs/companyreviews_run/models/pipeline_best_model.pkl
+- outputs/companyreviews_run/embeddings/tfidf.pkl
+
+## CLI Commands
+Show all commands:
 python main.py --help
 
-Commands:
-- eda         Exploratory data analysis (distribution, histogram)
-- preprocess  Text preprocessing (remove, stopwords, replace, all)
-- embed       Embeddings (tfidf)
-- train       Train and evaluate models (knn, lr, rf)
-- pipeline    Run preprocess + tfidf + training in one command (bonus)
-
-## Input Data Format
-
-Your CSV should contain:
-- A text column (e.g., description)
-- A label column (e.g., class)
-
-Example:
-
-description,class
-"هذا المنتج ممتاز",positive
-"التوصيل سيء جدا",negative
-
-## 1) EDA
-
-### Class Distribution
-
-python main.py eda distribution --csv_path data.csv --label_col class --plot_type bar
-python main.py eda distribution --csv_path data.csv --label_col class --plot_type pie
-
+### 1) EDA
+Class distribution:
+python main.py eda distribution --csv_path data.csv --label_col label --plot_type bar
+python main.py eda distribution --csv_path data.csv --label_col label --plot_type pie
+Text length histogram:
+python main.py eda histogram --csv_path data.csv --text_col text --unit words
+python main.py eda histogram --csv_path data.csv --text_col text --unit chars
 Outputs:
-- Plot saved to outputs/visualizations/
-- Console summary with counts and percentages
+- outputs/visualizations/ (PNG plots)
 
-### Text Length Histogram
+### 2) Preprocessing
+Run all preprocessing steps:
+python main.py preprocess all --csv_path data.csv --text_col text --output outputs/final.csv
+Individual steps (optional):
+python main.py preprocess remove --csv_path data.csv --text_col text --output cleaned.csv
+python main.py preprocess stopwords --csv_path cleaned.csv --text_col text --output no_stops.csv
+python main.py preprocess replace --csv_path no_stops.csv --text_col text --output normalized.csv
+Stopwords:
+- Stopwords list is stored locally at utils/stopwords_ar.txt
+- It can be swapped with an instructor-provided list without changing code
 
-python main.py eda histogram --csv_path data.csv --text_col description --unit words
-python main.py eda histogram --csv_path data.csv --text_col description --unit chars
+### 3) Embedding
+TF-IDF:
+python main.py embed tfidf --csv_path outputs/final.csv --text_col text --max_features 5000 --output outputs/embeddings/tfidf.pkl
+Bonus embeddings:
+python main.py embed bert --csv_path CompanyReviews.csv --text_col review_description --output outputs/embeddings/bert.pkl
+python main.py embed sentence-transformer --csv_path CompanyReviews.csv --text_col review_description --output outputs/embeddings/sbert.pkl
 
+### 4) Training and Evaluation
+Train models using an embedding artifact:
+python main.py train --csv_path outputs/final.csv --label_col label --embeddings_path outputs/embeddings/tfidf.pkl --test_size 0.2 --models knn --models lr --models rf --save_model outputs/models/best_model.pkl
 Outputs:
-- Plot saved to outputs/visualizations/
-- Console stats: mean/median/std/min/max
-
-## 2) Preprocessing
-
-The preprocessing steps are implemented in utils/arabic_text.py and use a stopwords list in utils/stopwords_ar.txt.
-
-### remove (cleaning)
-
-Removes:
-- URLs
-- Tashkeel (diacritics)
-- Tatweel
-- Non-Arabic symbols (keeps Arabic letters and spaces)
-
-python main.py preprocess remove --csv_path data.csv --text_col description --output cleaned.csv
-
-### stopwords
-
-Removes Arabic stopwords using utils/stopwords_ar.txt.
-
-python main.py preprocess stopwords --csv_path cleaned.csv --text_col description --output no_stops.csv
-
-### replace (normalization)
-
-Normalizes common Arabic variants:
-- أ/إ/آ → ا
-- ى → ي
-- ة → ه
-- ؤ → و
-- ئ → ي
-
-python main.py preprocess replace --csv_path no_stops.csv --text_col description --output normalized.csv
-
-### all (chain all preprocessing steps)
-
-python main.py preprocess all --csv_path data.csv --text_col description --output final.csv
-
-## 3) Embedding (TF-IDF)
-
-Creates TF-IDF vectors and saves them as a joblib file containing:
-- X (sparse matrix)
-- vectorizer (TfidfVectorizer)
-
-python main.py embed tfidf --csv_path final.csv --text_col description --max_features 5000 --output outputs/embeddings/tfidf.pkl
-
-Quick check:
-
-python -c "import joblib; d=joblib.load('outputs/embeddings/tfidf.pkl'); print(d.keys()); print(d['X'].shape)"
-
-## 4) Training and Evaluation
-
-Trains and evaluates selected models:
-- knn
-- lr (Logistic Regression)
-- rf (Random Forest)
-
-Generates:
-- Markdown report in outputs/reports/
-- Confusion matrix images in outputs/visualizations/
-- Best model package in outputs/models/ (optional)
-
-Run training:
-
-python main.py train --csv_path final.csv --label_col class --embeddings_path outputs/embeddings/tfidf.pkl --test_size 0.2 --models knn --models lr --models rf --save_model outputs/models/best_model.pkl
-
-Notes:
-- For very small datasets, stratified splitting may be disabled automatically.
-- KNN automatically adjusts k to not exceed the training set size.
-
-## 5) One-Line Pipeline (Bonus)
-
-Runs:
-preprocess (all) → tfidf → simple training report/model outputs
-
-python main.py pipeline --csv_path data.csv --text_col description --label_col class --max_features 5000 --test_size 0.2
-
-Outputs are saved under outputs/ (embeddings/models/reports).
+- outputs/reports/training_report_<timestamp>.md
+- outputs/visualizations/confmat_<model>_<timestamp>.png
+- outputs/models/best_model.pkl
 
 ## Outputs
-
 - outputs/visualizations/
-  - EDA distribution/histograms
+  - EDA plots (distribution/histogram)
   - confusion matrices
+  - wordclouds
 - outputs/embeddings/
-  - tfidf.pkl
-- outputs/reports/
-  - training_report_*.md
-  - pipeline_report.md
+  - TF-IDF artifacts and optional dense embeddings
 - outputs/models/
-  - best_model.pkl (from train)
-  - pipeline_best_model.pkl (from pipeline)
+  - saved best models
+- outputs/reports/
+  - markdown reports
 
-## Full Workflow Example
+## Verified Robustness (Instructor-Style Testing)
+The tool was validated on:
+1) Different column names:
+- Successful run on a dataset with review/category columns via pipeline.
+2) Messy Arabic text:
+- Successful run on text containing diacritics, tatweel, URLs, emojis, numbers.
+3) Missing values + class imbalance:
+- Successful run on datasets containing empty strings and NaNs.
+- The pipeline disables stratified splitting when it is mathematically invalid.
+4) Real dataset test:
+- Successful run on CompanyReviews.csv (40,046 samples, 3 classes) producing:
+  - TF-IDF (5000 features) and a Logistic Regression baseline report
+  - Saved embeddings/model/report artifacts
 
-python main.py eda distribution --csv_path data.csv --label_col class --plot_type bar
-python main.py preprocess all --csv_path data.csv --text_col description --output final.csv
-python main.py embed tfidf --csv_path final.csv --text_col description --max_features 5000 --output outputs/embeddings/tfidf.pkl
-python main.py train --csv_path final.csv --label_col class --embeddings_path outputs/embeddings/tfidf.pkl --test_size 0.2 --models knn --models lr --models rf --save_model outputs/models/best_model.pkl
+## Notes / Troubleshooting
+Stratify warning on small datasets:
+Stratified splitting requires the test set to include at least one sample per class.
+If test_size is too small for the number of classes, stratify is disabled automatically to prevent errors.
+Recommendation:
+- For small multi-class datasets, use --test_size 0.3 or higher.
 
-## Troubleshooting
+Wordcloud Arabic rendering:
+Arabic wordcloud output may require Arabic font + shaping/RTL handling depending on the environment.
 
-- "No such command": Ensure the command is registered in main.py.
-- "Class has only 1 member": Use a larger dataset, or stratify will be disabled automatically.
-- KNN error with small data: k is adjusted automatically in training implementation, but extremely small datasets may still produce unstable metrics.
+## Rubric Mapping
+Core Features:
+- EDA distribution + histogram implemented with saved plots.
+- Preprocessing remove + stopwords + replace + all implemented.
+- Embedding: TF-IDF implemented (baseline requirement) + bonus dense embeddings.
+- Training: metrics + report + confusion matrices + model saving.
+- Clean modular structure: commands/ + utils/ separation.
+- Documentation: reproducible commands for instructor evaluation.
+EOF
