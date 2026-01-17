@@ -1,0 +1,6 @@
+text,label
+"ممتاز جدا",positive
+"",positive
+"سيء",negative
+,negative
+"عادي",neutral
